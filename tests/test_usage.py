@@ -209,6 +209,23 @@ def test_freeform_var_blob_is_redacted(monkeypatch, tmp_path):
     assert params["extra_vars"] == "***"
 
 
+def test_freeform_var_blob_dict_is_redacted(monkeypatch, tmp_path):
+    log_file = tmp_path / "usage.jsonl"
+    mod = _configure_usage(monkeypatch, AWX_MCP_USAGE_LOG_FILE=str(log_file))
+    monkeypatch.setattr(mod, "resolve_user_identifier", lambda: "tester")
+
+    @mod.instrument_tool
+    def launch_job(template_id=None, extra_vars=None):
+        return "ok"
+
+    launch_job(template_id=5, extra_vars={"api_key": "SECRET", "region": "us"})
+
+    params = json.loads(_read_lines(log_file)[0])["params"]
+    assert params["template_id"] == 5
+    assert params["extra_vars"] == "***"
+    assert "SECRET" not in _read_lines(log_file)[0]
+
+
 def test_nested_secret_keys_are_redacted(monkeypatch, tmp_path):
     log_file = tmp_path / "usage.jsonl"
     mod = _configure_usage(monkeypatch, AWX_MCP_USAGE_LOG_FILE=str(log_file))

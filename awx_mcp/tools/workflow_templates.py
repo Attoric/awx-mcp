@@ -10,7 +10,7 @@ from typing import Any
 
 from ..client import get_ansible_client, handle_pagination
 from ..server import read_tool, write_tool
-from ..utils import parse_json_str, to_json, validate_json_str
+from ..utils import JsonParam, normalize_json_param, parse_json_str, to_json
 
 # =============================================================================
 # Workflow Template Management
@@ -77,7 +77,7 @@ def create_workflow_template(
     name: str,
     organization_id: int,
     description: str = "",
-    extra_vars: str = "{}",
+    extra_vars: JsonParam = "{}",
     survey_enabled: bool = False,
     allow_simultaneous: bool = False,
     inventory: int | None = None,
@@ -94,7 +94,7 @@ def create_workflow_template(
         name: Name of the workflow template
         organization_id: ID of the organization (from list_organizations)
         description: Description of the workflow template
-        extra_vars: JSON string of extra variables
+        extra_vars: Extra variables as a JSON string, object, or array
         survey_enabled: Whether to enable survey
         allow_simultaneous: Whether to allow simultaneous runs
         inventory: Default inventory ID for nodes that prompt on launch
@@ -102,7 +102,7 @@ def create_workflow_template(
         limit: Default host limit pattern for nodes that prompt on launch
         scm_branch: Default SCM branch for nodes that prompt on launch
     """
-    validate_json_str(extra_vars, "extra_vars")
+    extra_vars = normalize_json_param(extra_vars, "extra_vars")
 
     with get_ansible_client() as client:
         data = {
@@ -128,7 +128,7 @@ def update_workflow_template(
     template_id: int,
     name: str | None = None,
     description: str | None = None,
-    extra_vars: str | None = None,
+    extra_vars: JsonParam | None = None,
     survey_enabled: bool | None = None,
     allow_simultaneous: bool | None = None,
     inventory: int | None = None,
@@ -145,7 +145,7 @@ def update_workflow_template(
             (from list_workflow_templates or get_workflow_template)
         name: New name for the workflow template
         description: New description
-        extra_vars: JSON string of extra variables
+        extra_vars: Extra variables as a JSON string, object, or array
         survey_enabled: Whether to enable survey
         allow_simultaneous: Whether to allow simultaneous runs
         inventory: Default inventory ID for nodes that prompt on launch
@@ -154,7 +154,7 @@ def update_workflow_template(
         scm_branch: Default SCM branch for nodes that prompt on launch
     """
     if extra_vars is not None:
-        validate_json_str(extra_vars, "extra_vars")
+        extra_vars = normalize_json_param(extra_vars, "extra_vars")
 
     with get_ansible_client() as client:
         data: dict[str, Any] = {}
@@ -203,7 +203,7 @@ def delete_workflow_template(template_id: int) -> str:
 @write_tool(destructive=True)
 def launch_workflow(
     template_id: int,
-    extra_vars: str | None = None,
+    extra_vars: JsonParam | None = None,
     inventory: int | None = None,
     limit: str | None = None,
     scm_branch: str | None = None,
@@ -219,13 +219,14 @@ def launch_workflow(
     Args:
         template_id: ID of the workflow template
             (from list_workflow_templates or get_workflow_template)
-        extra_vars: JSON string of extra variables to override the template's variables
+        extra_vars: Extra variables as a JSON string, object, or array to
+            override the template's variables
         inventory: Override inventory ID (from list_inventories)
         limit: Override host limit pattern
         scm_branch: Override SCM branch for projects in the workflow
     """
     if extra_vars is not None:
-        validate_json_str(extra_vars, "extra_vars")
+        extra_vars = normalize_json_param(extra_vars, "extra_vars")
 
     with get_ansible_client() as client:
         data: dict[str, Any] = {}
@@ -288,7 +289,7 @@ def get_workflow_template_survey(template_id: int) -> str:
 
 
 @write_tool(idempotent=True)
-def set_workflow_template_survey(template_id: int, survey_spec: str) -> str:
+def set_workflow_template_survey(template_id: int, survey_spec: JsonParam) -> str:
     """Set the survey spec for an AWX workflow template.
 
     Use this to define or replace launch-time prompts for launch_workflow.
@@ -297,10 +298,12 @@ def set_workflow_template_survey(template_id: int, survey_spec: str) -> str:
     Args:
         template_id: ID of the workflow job template
             (from list_workflow_templates or get_workflow_template)
-        survey_spec: JSON string of the survey spec
+        survey_spec: Survey spec as a JSON string, object, or array
             (must include name, description, spec array)
     """
-    spec = parse_json_str(survey_spec, "survey_spec")
+    spec = parse_json_str(
+        normalize_json_param(survey_spec, "survey_spec"), "survey_spec"
+    )
 
     with get_ansible_client() as client:
         response = client.request(
@@ -393,7 +396,7 @@ def create_workflow_template_node(
     unified_job_template_id: int,
     identifier: str | None = None,
     all_parents_must_converge: bool = False,
-    extra_data: str = "{}",
+    extra_data: JsonParam = "{}",
 ) -> str:
     """Create a node in an AWX workflow template.
 
@@ -412,9 +415,11 @@ def create_workflow_template_node(
         identifier: Optional unique identifier for this node
         all_parents_must_converge: Whether all parent nodes must succeed before
             this node runs
-        extra_data: JSON string of extra variables for this node
+        extra_data: Extra variables as a JSON string, object, or array for this node
     """
-    parsed_extra = parse_json_str(extra_data, "extra_data")
+    parsed_extra = parse_json_str(
+        normalize_json_param(extra_data, "extra_data"), "extra_data"
+    )
 
     with get_ansible_client() as client:
         data = {

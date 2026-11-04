@@ -10,7 +10,7 @@ from typing import Any
 
 from ..client import get_ansible_client, handle_pagination
 from ..server import read_tool, write_tool
-from ..utils import parse_json_str, to_json, validate_json_str
+from ..utils import JsonParam, normalize_json_param, parse_json_str, to_json
 
 
 @read_tool
@@ -71,7 +71,7 @@ def create_job_template(
     project_id: int,
     playbook: str,
     description: str = "",
-    extra_vars: str = "{}",
+    extra_vars: JsonParam = "{}",
     job_type: str = "run",
     verbosity: int = 0,
     limit: str = "",
@@ -94,7 +94,7 @@ def create_job_template(
         project_id: ID of the project (from list_projects)
         playbook: Name of the playbook (e.g., "playbook.yml")
         description: Description of the job template
-        extra_vars: JSON string of extra variables
+        extra_vars: Extra variables as a JSON string, object, or array
         job_type: Job type — "run" for normal execution, "check" for dry-run
         verbosity: Output verbosity level (0=Normal, 1=Verbose, 2=More, 3=Debug,
             4=Connection, 5=WinRM)
@@ -110,7 +110,7 @@ def create_job_template(
     if verbosity not in range(6):
         raise ValueError("Invalid verbosity. Must be 0-5")
 
-    validate_json_str(extra_vars, "extra_vars")
+    extra_vars = normalize_json_param(extra_vars, "extra_vars")
 
     with get_ansible_client() as client:
         data = {
@@ -142,7 +142,7 @@ def update_job_template(
     project_id: int | None = None,
     playbook: str | None = None,
     description: str | None = None,
-    extra_vars: str | None = None,
+    extra_vars: JsonParam | None = None,
     job_type: str | None = None,
     verbosity: int | None = None,
     limit: str | None = None,
@@ -166,7 +166,7 @@ def update_job_template(
         project_id: New project ID (from list_projects)
         playbook: New playbook name
         description: New description
-        extra_vars: JSON string of extra variables
+        extra_vars: Extra variables as a JSON string, object, or array
         job_type: Job type — "run" or "check"
         verbosity: Output verbosity level (0-5)
         limit: Host limit pattern
@@ -181,7 +181,7 @@ def update_job_template(
     if verbosity is not None and verbosity not in range(6):
         raise ValueError("Invalid verbosity. Must be 0-5")
     if extra_vars is not None:
-        validate_json_str(extra_vars, "extra_vars")
+        extra_vars = normalize_json_param(extra_vars, "extra_vars")
 
     with get_ansible_client() as client:
         data: dict[str, Any] = {}
@@ -242,7 +242,7 @@ def delete_job_template(template_id: int) -> str:
 @write_tool(destructive=True)
 def launch_job(
     template_id: int,
-    extra_vars: str | None = None,
+    extra_vars: JsonParam | None = None,
     inventory: int | None = None,
     credential: int | None = None,
     limit: str | None = None,
@@ -262,7 +262,8 @@ def launch_job(
     Args:
         template_id: ID of the job template
             (from list_job_templates or get_job_template)
-        extra_vars: JSON string of extra variables to override the template's variables
+        extra_vars: Extra variables as a JSON string, object, or array to
+            override the template's variables
         inventory: Override inventory ID (from list_inventories)
         credential: Override credential ID (from list_credentials)
         limit: Host limit pattern (e.g., "webservers" or "host1,host2")
@@ -273,7 +274,7 @@ def launch_job(
         diff_mode: Override diff mode setting
     """
     if extra_vars is not None:
-        validate_json_str(extra_vars, "extra_vars")
+        extra_vars = normalize_json_param(extra_vars, "extra_vars")
 
     with get_ansible_client() as client:
         data: dict[str, Any] = {}
@@ -347,7 +348,7 @@ def get_job_template_survey(template_id: int) -> str:
 
 
 @write_tool(idempotent=True)
-def set_job_template_survey(template_id: int, survey_spec: str) -> str:
+def set_job_template_survey(template_id: int, survey_spec: JsonParam) -> str:
     """Set the survey spec for an AWX job template.
 
     Use this to define or replace launch-time prompts for launch_job.
@@ -357,10 +358,12 @@ def set_job_template_survey(template_id: int, survey_spec: str) -> str:
     Args:
         template_id: ID of the job template
             (from list_job_templates or get_job_template)
-        survey_spec: JSON string of the survey spec
+        survey_spec: Survey spec as a JSON string, object, or array
             (must include name, description, spec array)
     """
-    spec = parse_json_str(survey_spec, "survey_spec")
+    spec = parse_json_str(
+        normalize_json_param(survey_spec, "survey_spec"), "survey_spec"
+    )
 
     with get_ansible_client() as client:
         response = client.request(

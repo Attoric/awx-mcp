@@ -10,7 +10,7 @@ from typing import Any
 
 from ..client import get_ansible_client, handle_pagination
 from ..server import read_tool, write_tool
-from ..utils import to_json, validate_json_str
+from ..utils import JsonParam, normalize_json_param, to_json
 
 # =============================================================================
 # Activity Stream
@@ -197,7 +197,7 @@ def get_system_job_template(template_id: int) -> str:
 
 
 @write_tool(destructive=True)
-def launch_system_job(template_id: int, extra_vars: str | None = None) -> str:
+def launch_system_job(template_id: int, extra_vars: JsonParam | None = None) -> str:
     """Launch an AWX maintenance system job from a system job template.
 
     Starts asynchronous controller maintenance work and returns a system job
@@ -209,10 +209,11 @@ def launch_system_job(template_id: int, extra_vars: str | None = None) -> str:
     Args:
         template_id: ID of the system job template
             (from list_system_job_templates or get_system_job_template)
-        extra_vars: JSON string of extra variables (e.g., {"days": 90})
+        extra_vars: Extra variables as a JSON string, object, or array
+            (e.g., {"days": 90})
     """
     if extra_vars is not None:
-        validate_json_str(extra_vars, "extra_vars")
+        extra_vars = normalize_json_param(extra_vars, "extra_vars")
 
     with get_ansible_client() as client:
         data = {}

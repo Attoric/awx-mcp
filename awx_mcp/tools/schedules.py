@@ -6,7 +6,7 @@ Ansible MCP Server - Schedule Management Tools
 
 from ..client import get_ansible_client, handle_pagination
 from ..server import read_tool, write_tool
-from ..utils import parse_json_str, to_json
+from ..utils import JsonParam, normalize_json_param, parse_json_str, to_json
 
 
 @read_tool
@@ -63,7 +63,7 @@ def create_schedule(
     unified_job_template_id: int,
     rrule: str,
     description: str = "",
-    extra_data: str = "{}",
+    extra_data: JsonParam = "{}",
 ) -> str:
     """Create an AWX schedule for recurring launches.
 
@@ -78,9 +78,12 @@ def create_schedule(
         rrule: iCal recurrence rule
             (e.g., "DTSTART:20231001T120000Z RRULE:FREQ=DAILY;INTERVAL=1")
         description: Schedule description and intent
-        extra_data: JSON string of extra vars passed at each scheduled launch
+        extra_data: Extra vars as a JSON string, object, or array passed at each
+            scheduled launch
     """
-    parsed_extra = parse_json_str(extra_data, "extra_data")
+    parsed_extra = parse_json_str(
+        normalize_json_param(extra_data, "extra_data"), "extra_data"
+    )
 
     with get_ansible_client() as client:
         data = {
@@ -101,7 +104,7 @@ def update_schedule(
     name: str | None = None,
     rrule: str | None = None,
     description: str | None = None,
-    extra_data: str | None = None,
+    extra_data: JsonParam | None = None,
 ) -> str:
     """Update an AWX schedule.
 
@@ -114,11 +117,13 @@ def update_schedule(
         name: New schedule name
         rrule: New iCal recurrence rule
         description: New schedule description
-        extra_data: JSON string of updated extra vars for launches
+        extra_data: Extra vars as a JSON string, object, or array for launches
     """
     parsed_extra = None
     if extra_data is not None:
-        parsed_extra = parse_json_str(extra_data, "extra_data")
+        parsed_extra = parse_json_str(
+            normalize_json_param(extra_data, "extra_data"), "extra_data"
+        )
 
     with get_ansible_client() as client:
         data = {}

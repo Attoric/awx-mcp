@@ -211,6 +211,27 @@ def test_launch_job_invalid_extra_vars_short_circuits(fake_client):
     fake_client.request.assert_not_called()
 
 
+def test_launch_job_dict_extra_vars_serialized_to_json_string(fake_client):
+    with patch.object(
+        jt_mod, "get_ansible_client", new=fake_client_factory(fake_client)
+    ):
+        jt_mod.launch_job(template_id=20, extra_vars={"deploy_commands": "false"})
+
+    body = fake_client.request.call_args.kwargs["data"]
+    assert body["extra_vars"] == json.dumps({"deploy_commands": "false"})
+
+
+def test_launch_job_string_extra_vars_preserved(fake_client):
+    raw = '{"deploy_commands":"false"}'
+    with patch.object(
+        jt_mod, "get_ansible_client", new=fake_client_factory(fake_client)
+    ):
+        jt_mod.launch_job(template_id=20, extra_vars=raw)
+
+    body = fake_client.request.call_args.kwargs["data"]
+    assert body["extra_vars"] == raw
+
+
 def test_launch_job_credential_becomes_credentials_list(fake_client):
     with patch.object(
         jt_mod, "get_ansible_client", new=fake_client_factory(fake_client)
@@ -275,6 +296,16 @@ def test_set_job_template_survey_posts_parsed_spec(fake_client):
 
     method, endpoint = fake_client.request.call_args.args
     assert (method, endpoint) == ("POST", "/api/v2/job_templates/3/survey_spec/")
+    assert fake_client.request.call_args.kwargs["data"] == spec
+
+
+def test_set_job_template_survey_accepts_dict_spec(fake_client):
+    spec = {"name": "s", "description": "d", "spec": []}
+    with patch.object(
+        jt_mod, "get_ansible_client", new=fake_client_factory(fake_client)
+    ):
+        jt_mod.set_job_template_survey(3, spec)
+
     assert fake_client.request.call_args.kwargs["data"] == spec
 
 

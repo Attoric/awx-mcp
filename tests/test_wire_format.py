@@ -65,6 +65,36 @@ def _null_default_type_mismatches(schema: dict) -> list[str]:
     return bad
 
 
+_JSON_PARAMS = {
+    "extra_vars",
+    "survey_spec",
+    "source_vars",
+    "variables",
+    "extra_data",
+}
+
+
+def _schema_types(prop: dict) -> set[str]:
+    types = {prop.get("type")} if prop.get("type") else set()
+    for alt in prop.get("anyOf", []) + prop.get("oneOf", []):
+        if alt.get("type"):
+            types.add(alt["type"])
+    types.discard(None)
+    return {t for t in types if t is not None}
+
+
+def test_json_params_advertise_string_object_array():
+    tools = anyio.run(server.mcp.list_tools)
+    mismatches = {}
+    for tool in tools:
+        for name, prop in tool.input_schema.get("properties", {}).items():
+            if name in _JSON_PARAMS:
+                types = _schema_types(prop)
+                if not {"string", "object", "array"} <= types:
+                    mismatches[f"{tool.name}.{name}"] = sorted(types)
+    assert mismatches == {}
+
+
 def test_every_null_default_parameter_admits_null_in_its_schema():
     """`x: str = None` renders as {"type": "string", "default": null}.
 
