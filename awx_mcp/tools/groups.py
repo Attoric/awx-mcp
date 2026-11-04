@@ -6,7 +6,7 @@ Ansible MCP Server - Group Management Tools
 
 from ..client import get_ansible_client
 from ..server import read_tool, write_tool
-from ..utils import to_json, validate_json_str
+from ..utils import JsonParam, normalize_json_param, to_json
 from ._helpers import delete_resource, drop_none, get_resource, list_resource
 
 
@@ -66,7 +66,10 @@ def get_group(group_id: int) -> str:
 
 @write_tool()
 def create_group(
-    name: str, inventory_id: int, variables: str = "{}", description: str = ""
+    name: str,
+    inventory_id: int,
+    variables: JsonParam = "{}",
+    description: str = "",
 ) -> str:
     """Create an AWX group inside an inventory.
 
@@ -78,10 +81,10 @@ def create_group(
         name: Name of the group
         inventory_id: ID of the inventory to add the group to
             (from list_inventories response)
-        variables: JSON string of group variables
+        variables: Group variables as a JSON string, object, or array
         description: Description of the group
     """
-    validate_json_str(variables, "variables")
+    variables = normalize_json_param(variables, "variables")
 
     with get_ansible_client() as client:
         data = {
@@ -98,7 +101,7 @@ def create_group(
 def update_group(
     group_id: int,
     name: str | None = None,
-    variables: str | None = None,
+    variables: JsonParam | None = None,
     description: str | None = None,
 ) -> str:
     """Update AWX group metadata and variables.
@@ -110,11 +113,11 @@ def update_group(
     Args:
         group_id: ID of the group (from list_groups response)
         name: New name for the group
-        variables: JSON string of group variables
+        variables: Group variables as a JSON string, object, or array
         description: New description for the group
     """
     if variables is not None:
-        validate_json_str(variables, "variables")
+        variables = normalize_json_param(variables, "variables")
 
     with get_ansible_client() as client:
         data = drop_none(name=name, variables=variables, description=description)

@@ -55,6 +55,12 @@ def to_json(obj: object) -> str:
     return json.dumps(obj, separators=(",", ":"), ensure_ascii=False)
 
 
+# Tool parameters that AWX stores as JSON (extra_vars, survey_spec, …). MCP
+# clients often parse JSON-looking arguments into objects before the call, so
+# the advertised schema is string | object | array rather than string-only.
+JsonParam = str | dict[str, Any] | list[Any]
+
+
 def validate_json_str(value: str, param_name: str) -> None:
     """Validate a JSON string parameter.
 
@@ -75,6 +81,37 @@ def parse_json_str(value: str, param_name: str) -> Any:
         return json.loads(value)
     except json.JSONDecodeError as exc:
         raise ValueError(f"Invalid JSON in {param_name}: {exc.msg}") from exc
+
+
+def normalize_json_param(
+    value: JsonParam,
+    param_name: str,
+    *,
+    allow_non_json_str: bool = False,
+) -> str:
+    """Normalize a JSON tool parameter to the string AWX expects.
+
+    ``dict`` and ``list`` values are serialized with ``json.dumps``. A ``str``
+    is validated as JSON exactly as :func:`parse_json_str` does today, then
+    returned unchanged so AWX sees the original text. When
+    ``allow_non_json_str`` is true (inventory ``source_vars``), strings that do
+    not look like JSON objects or arrays are left as YAML. Anything else raises
+    ``ValueError`` naming ``param_name``.
+    """
+    if isinstance(value, (dict, list)):
+        try:
+            return json.dumps(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Invalid JSON in {param_name}: {exc}") from exc
+    if isinstance(value, str):
+        if allow_non_json_str and value.strip()[:1] not in ("{", "["):
+            return value
+        parse_json_str(value, param_name)
+        return value
+    raise ValueError(
+        f"{param_name} must be a JSON string, object, or array, "
+        f"got {type(value).__name__}"
+    )
 
 
 def wrap_tool_call(

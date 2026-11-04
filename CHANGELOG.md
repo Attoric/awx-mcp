@@ -8,6 +8,13 @@ independently of the tested AWX version (see [Versioning](#versioning)).
 
 ## [Unreleased]
 
+### Fixed
+- JSON tool parameters (`extra_vars`, `survey_spec`, `source_vars`, `variables`,
+  `extra_data`) now accept a JSON object or array as well as a string. Clients
+  that parse JSON-looking arguments into objects can call `launch_job` and
+  survey tools without a string-type validation error. AWX still receives the
+  same JSON text (or parsed object, for survey/extra_data) as before.
+
 ### Added
 - Five read-only MCP resource templates and three operational runbook prompts,
   filtered by enabled toolsets. Local and central startup register them explicitly,

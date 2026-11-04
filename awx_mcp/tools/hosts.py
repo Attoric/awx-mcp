@@ -6,7 +6,7 @@ Ansible MCP Server - Host Management Tools
 
 from ..client import get_ansible_client
 from ..server import read_tool, write_tool
-from ..utils import to_json, validate_json_str
+from ..utils import JsonParam, normalize_json_param, to_json
 from ._helpers import delete_resource, drop_none, get_resource, list_resource
 
 
@@ -66,7 +66,7 @@ def get_host(host_id: int) -> str:
 def create_host(
     name: str,
     inventory_id: int,
-    variables: str = "{}",
+    variables: JsonParam = "{}",
     description: str = "",
     enabled: bool = True,
 ) -> str:
@@ -80,11 +80,11 @@ def create_host(
         name: Name or IP address of the host
         inventory_id: ID of the inventory to add the host to
             (from list_inventories response)
-        variables: JSON string of host variables
+        variables: Host variables as a JSON string, object, or array
         description: Description of the host
         enabled: Whether the host is included in job runs
     """
-    validate_json_str(variables, "variables")
+    variables = normalize_json_param(variables, "variables")
 
     with get_ansible_client() as client:
         data = {
@@ -102,7 +102,7 @@ def create_host(
 def update_host(
     host_id: int,
     name: str | None = None,
-    variables: str | None = None,
+    variables: JsonParam | None = None,
     description: str | None = None,
     enabled: bool | None = None,
 ) -> str:
@@ -115,12 +115,12 @@ def update_host(
     Args:
         host_id: ID of the host (from list_hosts response)
         name: New name for the host
-        variables: JSON string of host variables
+        variables: Host variables as a JSON string, object, or array
         description: New description for the host
         enabled: Whether the host is included in job runs
     """
     if variables is not None:
-        validate_json_str(variables, "variables")
+        variables = normalize_json_param(variables, "variables")
 
     with get_ansible_client() as client:
         data = drop_none(

@@ -10,7 +10,7 @@ from typing import Any
 
 from ..client import get_ansible_client, handle_pagination
 from ..server import read_tool, write_tool
-from ..utils import to_json, validate_json_str
+from ..utils import JsonParam, normalize_json_param, to_json
 
 # =============================================================================
 # Inventory Management
@@ -73,7 +73,10 @@ def get_inventory(inventory_id: int) -> str:
 
 @write_tool()
 def create_inventory(
-    name: str, organization_id: int, description: str = "", variables: str = "{}"
+    name: str,
+    organization_id: int,
+    description: str = "",
+    variables: JsonParam = "{}",
 ) -> str:
     """Create an AWX inventory in an organization.
 
@@ -85,9 +88,9 @@ def create_inventory(
         name: Name of the inventory
         organization_id: ID of the organization (from list_organizations response)
         description: Description of the inventory
-        variables: JSON string of inventory-level variables
+        variables: Inventory-level variables as a JSON string, object, or array
     """
-    validate_json_str(variables, "variables")
+    variables = normalize_json_param(variables, "variables")
 
     with get_ansible_client() as client:
         data = {
@@ -105,7 +108,7 @@ def update_inventory(
     inventory_id: int,
     name: str | None = None,
     description: str | None = None,
-    variables: str | None = None,
+    variables: JsonParam | None = None,
 ) -> str:
     """Update AWX inventory metadata.
 
@@ -117,10 +120,10 @@ def update_inventory(
         inventory_id: ID of the inventory (from list_inventories response)
         name: New name for the inventory
         description: New description for the inventory
-        variables: JSON string of inventory-level variables
+        variables: Inventory-level variables as a JSON string, object, or array
     """
     if variables is not None:
-        validate_json_str(variables, "variables")
+        variables = normalize_json_param(variables, "variables")
 
     with get_ansible_client() as client:
         data: dict[str, Any] = {}
@@ -225,7 +228,7 @@ def create_inventory_source(
     inventory_id: int,
     source: str,
     source_path: str = "",
-    source_vars: str = "{}",
+    source_vars: JsonParam = "{}",
     credential_id: int | None = None,
     overwrite: bool = False,
     overwrite_vars: bool = False,
@@ -244,16 +247,17 @@ def create_inventory_source(
         source: Source type (scm, ec2, gce, azure_rm, vmware, satellite6,
             openstack, rhv, controller, file)
         source_path: Path to the source file within the project
-        source_vars: JSON/YAML string of source variables
+        source_vars: Source variables as JSON string, object, array, or YAML
+            string
         credential_id: Optional ID of the credential (from list_credentials response)
         overwrite: Whether to overwrite existing hosts/groups on sync
         overwrite_vars: Whether to overwrite existing variables on sync
         update_on_launch: Whether to update on job launch
         description: Description of the inventory source
     """
-    looks_like_json = source_vars.strip()[:1] in ("{", "[")
-    if looks_like_json:
-        validate_json_str(source_vars, "source_vars")
+    source_vars = normalize_json_param(
+        source_vars, "source_vars", allow_non_json_str=True
+    )
 
     with get_ansible_client() as client:
         data = {
@@ -279,7 +283,7 @@ def update_inventory_source(
     name: str | None = None,
     source: str | None = None,
     source_path: str | None = None,
-    source_vars: str | None = None,
+    source_vars: JsonParam | None = None,
     credential_id: int | None = None,
     overwrite: bool | None = None,
     overwrite_vars: bool | None = None,
@@ -297,8 +301,8 @@ def update_inventory_source(
         source: New source type (scm, ec2, gce, azure_rm, vmware, satellite6,
             openstack, rhv, controller, file)
         source_path: New path to the source file within the project
-        source_vars: JSON/YAML string of source variables (JSON validated
-            client-side; AWX also accepts YAML)
+        source_vars: Source variables as JSON string, object, array, or YAML
+            string (JSON validated client-side; AWX also accepts YAML)
         credential_id: New credential ID (from list_credentials response)
         overwrite: Whether to overwrite existing hosts/groups on sync
         overwrite_vars: Whether to overwrite existing variables on sync
@@ -306,9 +310,9 @@ def update_inventory_source(
         description: New description
     """
     if source_vars is not None:
-        looks_like_json = source_vars.strip()[:1] in ("{", "[")
-        if looks_like_json:
-            validate_json_str(source_vars, "source_vars")
+        source_vars = normalize_json_param(
+            source_vars, "source_vars", allow_non_json_str=True
+        )
 
     with get_ansible_client() as client:
         data: dict[str, Any] = {}
